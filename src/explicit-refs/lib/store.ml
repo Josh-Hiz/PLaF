@@ -26,7 +26,6 @@ let new_ref : 'a t -> 'a -> int =
     st.size-1
   end
 
-
 let deref : 'a t -> int -> 'a ea_result =
   fun st l ->
   if l>=st.size
@@ -37,8 +36,7 @@ let set_ref :  'a t -> int -> 'a -> unit ea_result =
   fun st l v ->
   if l>=st.size
   then error "Index out of bounds"
-  else return (st.data.(l)<-v)
-           
+  else return (st.data.(l)<-v)    
 
 let rec take n = function
   | [] -> []

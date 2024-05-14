@@ -1,11 +1,28 @@
+(* Names: Joshua Hizgiaev & Matthew Soltys
+   Date: 04/06/2024
+   Assignment: 496 HW4 
+   Pledge: I pledge my honor that I have abided by the Stevens Honor System*)
+
 open Ds
 open Parser_plaf.Ast
 open Parser_plaf.Parser
     
 let g_store = Store.empty_store 20 (NumVal 0)
 
+let rec addIds fs evs =
+  match fs , evs with
+  | [] ,[] -> []
+  | (id ,( is_mutable ,_ ))::t1 , v::t2 -> (id ,( is_mutable ,v )):: addIds t1 t2
+  | _,_ -> failwith "error: lists have different sizes"
+
 let rec eval_expr : expr -> exp_val ea_result = fun e ->
   match e with
+  | IsEqual (e1,e2) ->
+    eval_expr e1 >>= int_of_numVal >>= fun ev1 -> eval_expr e2 >>= int_of_numVal >>= fun ev2 -> return @@ BoolVal (ev1=ev2)
+  | IsGT (e1, e2) ->
+    eval_expr e1 >>= int_of_numVal >>= fun ev1 -> eval_expr e2 >>= int_of_numVal >>= fun ev2 -> return @@ BoolVal (ev1>ev2)
+  | IsLT (e1, e2) ->
+    eval_expr e1 >>= int_of_numVal >>= fun ev1 -> eval_expr e2 >>= int_of_numVal >>= fun ev2 -> return @@ BoolVal (ev1<ev2)
   | Int(n) -> return @@ NumVal n
   | Var(id) -> apply_env id
   | Add(e1,e2) ->
@@ -92,12 +109,59 @@ let rec eval_expr : expr -> exp_val ea_result = fun e ->
     sequence (List.map eval_expr es) >>= fun l ->
     return (List.hd (List.rev l))
   | Unit -> return UnitVal
+  | Record(fs) ->
+    sequence (List.map process_field fs) >>= fun evs ->
+    return (RecordVal (addIds fs evs))
+  | Proj(e,id) ->
+    eval_expr e >>= fun ev1 -> 
+      (match ev1 with
+      | RecordVal(fs) ->
+        let rec proj_helper = 
+          fun id fs ->
+            match fs with
+            | [] -> error "Proj_Error: Record not found!"
+            | (idx,(is_mutable,v))::t -> 
+              if idx = id then 
+                (match (is_mutable, v) with
+                | (_, RefVal ref_val) -> (Store.deref g_store ref_val)
+                | (_, v) -> return v)
+            else proj_helper id t
+        in proj_helper id fs
+      | _ -> error "Proj_Error: Type not a record!")
+  | SetField(e1, id, e2) ->
+    eval_expr e1 >>= fun ev1 -> eval_expr e2 >>= fun ev2 ->
+      (match ev1 with
+      | RecordVal(fs) ->
+        let rec field_helper = 
+          fun id fs ->
+            match fs with
+            | [] -> error "SetField_Error: Record not found!"
+            | (idx,(is_mutable,v))::t -> 
+              if idx = id then 
+                (match (is_mutable, v) with
+                | (false, _) -> error "Field not mutable"
+                | (true, RefVal ref_val) -> (Store.set_ref g_store ref_val ev2) >>= fun _ -> return UnitVal
+                | (true, _) -> error "SetField_Error: Invalid value type to change!")
+            else field_helper id t
+        in field_helper id fs
+      | _ -> error "SetField_Error: Type not a record!")
+  | IsNumber(e) ->
+    eval_expr e >>= fun n ->
+      (match n with
+      | (NumVal _) -> return @@ BoolVal (true)
+      | _ -> return @@ BoolVal (false))
   | Debug(_e) ->
     string_of_env >>= fun str_env ->
     let str_store = Store.string_of_store string_of_expval g_store 
     in (print_endline (str_env^"\n"^str_store);
     error "Reached breakpoint")
   | _ -> failwith ("Not implemented: "^string_of_expr e)
+and
+process_field (_id,(is_mutable,e)) =
+  eval_expr e >>= fun ev ->
+  if is_mutable
+  then return (RefVal (Store.new_ref g_store ev))
+  else return ev
 
 let eval_prog (AProg(_,e)) =
   eval_expr e         
@@ -107,5 +171,9 @@ let interp (s:string) : exp_val result =
   let c = s |> parse |> eval_prog
   in run c
 
-
+let interpf (s:string) : exp_val result =
+  let s = String.trim s
+in let file_name =
+  match String.index_opt s '.' with None -> s^".exr" | _ -> s
+in interp @@ read_file file_name
 

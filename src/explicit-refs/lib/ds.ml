@@ -52,6 +52,15 @@ let sequence (cs: ('a ea_result) list) : ('a list) ea_result  =
   let mcons p q = p >>= fun x -> q >>= fun y -> return (x::y)
   in List.fold_right mcons cs (return []) 
 
+(* let rec sequence : ( 'a ea_result ) list -> ( 'a list ) ea_result =
+  fun cs ->
+  match cs with
+  | [] -> return []
+  | c : : t ->
+    c > >= fun v ->
+    sequence t > >= fun vs ->
+    return ( v : : vs ) *)
+
 let mapM (f:'a -> 'b ea_result) (vs:'a list) : ('b list) ea_result =
    sequence (List.map f vs)
 
