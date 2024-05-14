@@ -1,17 +1,22 @@
+(* Names: Joshua Hizgiaev & Matthew Soltys
+   Pledge: I pledge my honor that I have abided by the Stevens Honor System
+   Date: 02/25/2024
+   Assignment: CS496 HW3
+   File: ds.ml *)
+
 (* This file defines expressed values and environments *)
 
 (* expressed values and environments are defined mutually recursively *)
-
 
 type exp_val =
   | NumVal of int
   | BoolVal of bool
   | PairVal of exp_val*exp_val
   | TupleVal of exp_val list
+  | ListVal of exp_val list
 type env =
   | EmptyEnv
   | ExtendEnv of string*exp_val*env
-
 
 (* Environment Abstracted Result *)
 
@@ -72,7 +77,7 @@ let rec extend_env_list_helper =
   | id::idt,ev::evt ->
     ExtendEnv(id,ev,extend_env_list_helper idt evt en)
   | _,_ -> failwith
-             "extend_env_list_helper: ids and evs have different sizes"
+             "extend_env_list: Arguments do not match parameters!"
   
 let extend_env_list =
   fun ids evs ->
@@ -106,7 +111,7 @@ let list_of_tupleVal : exp_val -> (exp_val list)  ea_result =  function
 let pair_of_pairVal : exp_val -> (exp_val*exp_val) ea_result =  function
   |  PairVal(ev1,ev2) -> return (ev1,ev2)
   | _ -> error "Expected a pair!"
-           
+       
 let rec string_of_expval = function
   | NumVal n -> "NumVal " ^ string_of_int n
   | BoolVal b -> "BoolVal " ^ string_of_bool b
